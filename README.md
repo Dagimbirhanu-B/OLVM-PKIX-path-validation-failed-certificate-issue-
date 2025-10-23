@@ -26,20 +26,18 @@ openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 here is the output i get from the server showing the error like in the screenshot
 ```
 
-[dagi@x9-hosted-engine ~]$ # Check CA certificate (can also be presented to clients)
-[dagi@x9-hosted-engine ~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
+[ ~]$ # Check CA certificate (can also be presented to clients)
+[~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
 notBefore=Sep 17 16:23:25 2024 GMT
 notAfter=Sep 13 16:23:25 2044 GMT
-[dagi@x9-hosted-engine ~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
+[~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
 notBefore=Sep 17 16:23:25 2024 GMT
 notAfter=Sep 13 16:23:25 2044 GMT
-[dagi@x9-hosted-engine ~]$
-[dagi@x9-hosted-engine ~]$
-[dagi@x9-hosted-engine ~]$
-[dagi@x9-hosted-engine ~]$ openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
+
+[~]$ openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 notBefore=Sep 17 16:23:25 2024 GMT
 notAfter=Oct 21 16:23:25 2025 GMT
-[dagi@x9-hosted-engine ~]$
+[ ~]$
 ```
 Apache/engine server certificate (/etc/pki/ovirt-engine/certs/apache.cer) is expired:
 
