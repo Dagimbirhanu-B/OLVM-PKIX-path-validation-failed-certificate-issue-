@@ -1,2 +1,2 @@
 # OLVM-PKIX-path-validation-failed-certificate-issue-
-![Screenshot](images/screenshot1.png)
+![Screenshot](screenshot1.png)
