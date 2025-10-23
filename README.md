@@ -18,6 +18,20 @@
 ls -lh /etc/pki/ovirt-engine/certs/
 
 ```
+list of certificates on olvm 
+```
+•	CA Certificate (typically used as root of trust) => not expired
+# openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
+Or
+#openssl x509 -in /etc/pki/ovirt-engine/ca.pem -noout -dates
+•	Server (Engine/Apache) Certificate
+#openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
+•	Host Certificate (run on each KVM/compute host)
+#openssl x509 -in /etc/pki/vdsm/certs/vdsmcert.pem -noout -dates
+•	API Certificate (if you have an explicit custom API cert)
+#openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
+
+```
 - to see list of engine certificate details 
 ```
 # Check Apache/engine certificate (main cert in most OLVM installs)
