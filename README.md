@@ -1,6 +1,6 @@
 # OLVM-PKIX-path-validation-failed-certificate-issue-
 ![Screenshot](screenshot1.png)
-![Screenshot](screenshot3.png)
+![Screenshot](screenshot4.png)
 ## Why This Happens:
 
 - The most common reason for this error is an expired or invalid certificate on your Oracle Linux Virtualization Manager server.
