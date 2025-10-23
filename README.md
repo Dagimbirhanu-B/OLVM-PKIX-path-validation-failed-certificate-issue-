@@ -12,15 +12,19 @@
   ![Screenshot](screenshot2.png)
 
 ## how to solve
-to see certificate details 
+
+- see list of certificate on the machine 
+```
+ls -lh /etc/pki/ovirt-engine/certs/
+
+```
+- to see list of engine certificate details 
 ```
 # Check Apache/engine certificate (main cert in most OLVM installs)
 openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 
 # Check CA certificate (can also be presented to clients)
 openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
-# Check the Apache/Engine Server Certificate Validity:
-openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 
 ```
 here is the output i get from the server showing the error like in the screenshot
@@ -30,10 +34,6 @@ here is the output i get from the server showing the error like in the screensho
 [~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
 notBefore=Sep 17 16:23:25 2024 GMT
 notAfter=Sep 13 16:23:25 2044 GMT
-[~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
-notBefore=Sep 17 16:23:25 2024 GMT
-notAfter=Sep 13 16:23:25 2044 GMT
-
 [~]$ openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 notBefore=Sep 17 16:23:25 2024 GMT
 notAfter=Oct 21 16:23:25 2025 GMT
