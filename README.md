@@ -71,11 +71,19 @@ This guide provides the steps to resolve this issue quickly.
 ## Step 1: Regenerate or Renew the Server Certificate
 
 Run the following command on your OLVM Manager **as root**:
-
+```
 sudo engine-setup
+```
+During setup, you will be prompted about renewing expired keys and certificates. Choose 'Yes'.
+
+This will reissue a fresh server certificate and update your configuration.
 
 This ensures the new certificate is active and in use.
-
+## Step 2: Restart OLVM Services After Regeneration
+```
+sudo systemctl restart ovirt-engine httpd
+```
+This ensures the new certificate is active.
 ---
 
 ## Step 3: Verify Access
@@ -104,7 +112,6 @@ After restarting the services:
 
 ---
 
-## Need More Help?
-Run the following for interactive support:
+
 
 
