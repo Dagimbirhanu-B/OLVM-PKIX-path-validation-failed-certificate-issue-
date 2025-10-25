@@ -1,0 +1,295 @@
+#/usr/bin/bash
+
+# 20240222 - copy clientcert.pem to /etc/pki/libvirt
+# 20240222 - add /etc/pki/libvirt/ to the backup
+# 20240222 - fail immediatly if any host is unreachable
+# 20240222 - skip libvirt-migrate certs if 4.3
+# 20240222 - getting subject from the first cert issued
+# 20240305 - fix qemu cert subject regex
+# 20240307 - fix libvirt-vnc/server-key.pem
+# 20240321 - fix ca files in case the engine-ca has changed
+
+### variables and arrays
+days=1826
+psq="/usr/share/ovirt-engine/dbscripts/engine-psql.sh"
+engine_ca="/etc/pki/ovirt-engine/certs/ca.der"
+aapache_ca="etc/pki/ovirt-engine/apache-ca.pem"
+qemu_ca="/etc/pki/ovirt-engine/certs/qemu-ca.der"
+ssh_key="/etc/pki/ovirt-engine/keys/engine_id_rsa"
+opts="-o StrictHostKeyChecking=no"
+wdir="/var/tmp/vdsm_temp"
+ip_regexp='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+
+kwd="/etc/pki/vdsm/"
+kna=("vdsm" "libvirt-migrate" "libvirt-spice" "libvirt-vnc" "ovn")
+kce=("certs/vdsmcert.pem" "libvirt-migrate/server-cert.pem" "libvirt-spice/server-cert.pem" "libvirt-vnc/server-cert.pem" "ovn/ovn-cert.pem")
+kca=("certs/cacert.pem" "libvirt-migrate/ca-cert.pem" "libvirt-spice/ca-cert.pem" "libvirt-vnc/ca-cert.pem" "ovn/ca-cert.pem")
+kke=("keys/vdsmkey.pem" "libvirt-migrate/server-key.pem" "libvirt-spice/server-key.pem" "libvirt-vnc/server-key.pem" "ovn/ovn-key.pem")
+pca=("644 kvm root" "644 kvm root" "644 kvm root" "644 kvm root" "644 openvswitch openvswitch")
+pce=("644 kvm root" "644 kvm root" "644 kvm root" "644 kvm root" "644 openvswitch openvswitch")
+pke=("440 kvm vdsm" "440 qemu root" "440 kvm vdsm" "440 kvm vdsm" "440 openvswitch openvswitch")
+
+### PASS/FAIL/WARN function
+function error_code {
+    if [[ $1 -ne 0 ]] && [[ $2 -eq 1 ]]; then
+        printf "\e[31m%s\e[0m \n\n" "[FAIL]"; exit 1
+    elif [ $1 -eq 1 ]; then
+        printf "\e[31m%s\e[0m \n" "[FAIL]"
+    elif [ $1 -eq 0 ]; then
+        printf "\e[32m%s\e[0m \n" "[PASS]"
+    else
+        printf "\e[33m%s\e[0m \n" "[WARN]"
+    fi
+}
+
+### cleaning up /var/tmp/vdsm_temp dir
+function clean_up {
+    rm -f $wdir/* &>/dev/null
+    rmdir $wdir &>/dev/null
+}
+
+### check if host is reachable
+function check_reach {
+    printf "\e[90m%-74s\e[0m" "    Checking connection to $1"
+    ssh -i $ssh_key $opts $1 uptime &>/dev/null
+    error_code $? 1
+}
+
+### coloring certificate enddate
+function color_date {
+    if [ $3 -gt 90 ]; then
+        printf "%-50s $s \e[32m%28s\e[0m \n" "    $1" "$2"
+    elif [ $3 -gt 30 ]; then
+        printf "%-50s $s \e[33m%28s\e[0m \n" "    $1" "$2"
+    else
+        printf "%-50s $s \e[31m%28s\e[0m \n" "    $1" "$2"
+    fi
+}
+
+### get certificate enddates from the certs available in the engine host
+function get_status {
+    echo; for line in `find /etc/pki/ovirt-engine/certs/ -regex ".*cer$" | grep -v "\-ssh.cer"`; do
+        enddate=`openssl x509 -in $line -enddate -noout | cut -d= -f2` 
+        enddays=$(( ($(date -d "$enddate" '+%s') - $(date '+%s')) / 86400 ))
+        line=`echo $line|cut -d\/ -f6`
+        color_date "$line" "$enddate" $enddays
+    done
+}
+
+function renew_host {
+    ### check if it is reachable
+    printf "\n%-70s \n" "... Host: $1"; check_reach $1
+
+    ### create a backup in /var/tmp
+    printf "\e[90m%-74s\e[0m" "    Creating backup for $1";    
+    ssh -i $ssh_key $opts $1 "tar cf /var/tmp/vdsm_$1_`date '+%Y%m%d%H%M%S'`.tar /etc/pki/vdsm /etc/pki/libvirt 2>/dev/null"; error_code $? 1
+    clean_up; mkdir $wdir
+
+    ### taking care of vdsm, libvirt-spice and libvirt-vnc certificates
+    printf "\e[90m%-74s\e[0m" "    Getting private key of $1";
+    scp -i $ssh_key $opts $1:/etc/pki/vdsm/keys/vdsmkey.pem $wdir/vdsmkey.pem &>/dev/null; error_code $? 1
+    printf "\e[90m%-74s\e[0m" "    Checking cert subject";
+    first_cert=`ls -tr /etc/pki/ovirt-engine/certs/$1* | head -1`
+    cert_subject=`openssl x509 -in $first_cert -noout -subject |sed -e 's/subject=/\//;s/ //g;s/,/\//' 2>/dev/null`; error_code $? 1
+   
+    ### check if san_type is DNS or IP
+    san_type=DNS; [[ $1 =~ ${ip_regexp} ]] && san_type=IP
+
+    ### generating cert request
+    printf "\e[90m%-74s\e[0m" "    Generating cert request for $1";
+    openssl req -new -key $wdir/vdsmkey.pem -out $wdir/$1.req -passin "pass:mypass" -passout "pass:mypass" -batch -subj "/" &>/dev/null; error_code $? 1
+    cp $wdir/$1.req /etc/pki/ovirt-engine/requests
+
+    ### signing the cert request with /usr/share/ovirt-engine/bin/pki-enroll-request.sh
+    printf "\e[90m%-74s\e[0m" "    Signing the cert for $1";
+    /usr/share/ovirt-engine/bin/pki-enroll-request.sh --name=$1 --subject="$cert_subject" --san="$san_type:$1" --days=$days &>/dev/null; error_code $? 1
+
+    ### copy everything back to the Hypervisor
+    printf "\e[90m%-74s\e[0m" "    Copying ca cert to $1";
+    scp -i $ssh_key $opts $engine_ca $1:/etc/pki/vdsm/libvirt-spice/ca-cert.pem &>/dev/null
+    scp -i $ssh_key $opts $engine_ca $1:/etc/pki/vdsm/libvirt-vnc/ca-cert.pem &>/dev/null
+    scp -i $ssh_key $opts $engine_ca $1:/etc/pki/vdsm/certs/cacert.pem &>/dev/null; error_code $? 1
+    printf "\e[90m%-74s\e[0m" "    Copying vdsm cert to $1";
+    scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs/$1.cer $1:/etc/pki/vdsm/certs/vdsmcert.pem &>/dev/null; error_code $? 1
+    printf "\e[90m%-74s\e[0m" "    Copying libvirt cert to $1 ";
+    scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs/$1.cer $1:/etc/pki/libvirt/clientcert.pem &>/dev/null; error_code $? 1
+    printf "\e[90m%-74s\e[0m" "    Copying libvirt-spice cert to $1";
+    scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs/$1.cer $1:/etc/pki/vdsm/libvirt-spice/server-cert.pem &>/dev/null; error_code $? 1
+    printf "\e[90m%-74s\e[0m" "    Copying libvirt-vnc cert to $1";
+    scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs/$1.cer $1:/etc/pki/vdsm/libvirt-vnc/server-cert.pem &>/dev/null; error_code $? 1
+
+    ### we are basing vnc console key on vdsm key, so we are re-writing vnc console key also
+    ssh -i $ssh_key $opts $1 "yes | cp /etc/pki/vdsm/keys/vdsmkey.pem /etc/pki/vdsm/libvirt-vnc/server-key.pem" &>/dev/null
+
+    ### in 4.5 we have a ovn cert, it uses the same ca, but has his own key
+    if [ $version -gt 4 ]; then
+        printf "\e[90m%-74s\e[0m" "    Getting OVN private key of $1";
+        scp -i $ssh_key $opts $1:/etc/pki/vdsm/ovn/ovn-key.pem $wdir/ovn-key.pem &>/dev/null; error_code $? 1
+        printf "\e[90m%-74s\e[0m" "    Generating OVN cert request for $1";
+        openssl req -new -key $wdir/ovn-key.pem -out $wdir/$1-ovn.req -passin "pass:mypass" -passout "pass:mypass" -batch -subj "/" &>/dev/null; error_code $? 1
+        cp $wdir/$1-ovn.req /etc/pki/ovirt-engine/requests
+        printf "\e[90m%-74s\e[0m" "    Signing the OVN cert for $1";
+        /usr/share/ovirt-engine/bin/pki-enroll-request.sh --name=$1-ovn --subject="$cert_subject" --san="$san_type:$1" --days=$days &>/dev/null; error_code $? 1
+        printf "\e[90m%-74s\e[0m" "    Copying ovn-ca cert to $1";
+        scp -i $ssh_key $opts $engine_ca $1:/etc/pki/vdsm/ovn/ca-cert.pem &>/dev/null; error_code $? 1
+        printf "\e[90m%-74s\e[0m" "    Copying ovn certificate to $1";
+        scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs/$1-ovn.cer $1:/etc/pki/vdsm/ovn/ovn-cert.pem &>/dev/null; error_code $? 1
+    fi
+
+    ### single hosts may not have libvirt-migrate (at least in 4.3), in case of failure status is WARN, not FAIL
+    if [ $version -gt 3 ]; then
+        printf "\e[90m%-74s\e[0m" "    Checking libvirt-migrate cert subject";
+        first_cert=`ls -tr /etc/pki/ovirt-engine/certs-qemu/$1* | head -1`
+        cert_subject=`openssl x509 -in $first_cert -noout -subject |sed -e 's/subject=/\//;s/ //g;s/,/\//g' 2>/dev/null`; error_code $? 1
+        san_type=DNS; [[ $1 =~ ${ip_regexp} ]] && san_type=IP
+        printf "\e[90m%-74s\e[0m" "    Generating libvirt-migrate cert";
+        /usr/share/ovirt-engine/bin/pki-enroll-request.sh --name=$1 --subject="$cert_subject" --san="$san_type:$1" --days=$days --ca-file=qemu-ca --cert-dir=certs-qemu --req-dir=requests-qemu &>/dev/null; error_code $? 1
+        printf "\e[90m%-74s\e[0m" "    Copying qemu-ca cert to $1";
+        scp -i $ssh_key $opts $qemu_ca $1:/etc/pki/vdsm/libvirt-migrate/ca-cert.pem &>/dev/null; error_code $? 1
+        printf "\e[90m%-74s\e[0m" "    Copying libvirt-migrate cert to $1";
+        scp -i $ssh_key $opts /etc/pki/ovirt-engine/certs-qemu/$1.cer $1:/etc/pki/vdsm/libvirt-migrate/server-cert.pem &>/dev/null; error_code $? 1
+    fi
+
+    ### Check if PM is enabled for the host and disables it
+    pm=`$psq -t -c "select pm_enabled from vds_static where host_name='$1'" | head -1`
+    if [[ $pm = *'t'* ]]; then 
+        printf "\e[90m%-74s\e[0m" "    Disabling power management for $1";
+        $psq -c "update vds_static set pm_enabled=false where host_name='$1'" &>/dev/null; error_code $? 1
+    fi
+
+    ### restart libvirtd service
+    printf "\e[90m%-74s\e[0m" "    Restarting services on $1";
+    ssh -i $ssh_key $opts $1 "systemctl restart libvirtd" &>/dev/null; error_code $? 1
+
+    ### wait for host to become available
+    printf "\e[90m%-74s\e[0m" "    Waiting for host to become Available";
+    sleep 20; timeout=280
+    while [[ $($psq -t -c "select a.status from vds_dynamic a, vds_static b where a.vds_id=b.vds_id and b.host_name='$1'") -ne 3 ]]; do
+        let timeout=$((timeout - 5))
+        sleep 5
+        [[ $timeout -lt 0 ]] && error_code 1 1
+    done
+    error_code 0
+
+    ### Re-enables PM if it was enabled
+    if [[ $pm = *'t'* ]]; then 
+        printf "\e[90m%-74s\e[0m" "    Enabling power management for $1";
+        $psq -c "update vds_static set pm_enabled=true where host_name='$1'" &>/dev/null; error_code $? 1
+    fi
+    clean_up
+}
+
+### check host certificates
+function check_host {
+    printf "\n%-70s \n" "... Host: $1"; check_reach $1
+    for n in {0..4}; do
+        if [[ (( $version = 3 && $n != 1 && $n != 4 ) || ( $version = 4 && $n != 4 ) || ( $version = 5 )) ]]; then
+            enddate=`ssh -i $ssh_key $opts $1 "openssl x509 -in $kwd${kce[n]} -enddate -noout | cut -d= -f2" 2>/dev/null`
+            enddays=$(( ($(date -d "$enddate" '+%s') - $(date '+%s')) / 86400 ))
+            [[ "$enddate" = "" ]] && enddate="[MISSING]" && enddays=31
+            color_date "$kwd${kce[n]}" "$enddate" $enddays
+            printf "\e[90m%-74s\e[0m" "    Validating ${kna[n]} against ca"; check_cert_ca $1 "$kwd${kca[n]}" "$kwd${kce[n]}"
+            printf "\e[90m%-74s\e[0m" "    Checking ${kna[n]} private key"; check_cert_key $1 "$kwd${kce[n]}" "$kwd${kke[n]}"
+            printf "\e[90m%-74s\e[0m" "    Checking ${kna[n]} ca permissions"; check_cert_perms $1 "$kwd${kca[n]}" "${pca[n]}"
+            printf "\e[90m%-74s\e[0m" "    Checking ${kna[n]} cert permissions"; check_cert_perms $1 "$kwd${kce[n]}" "${pce[n]}"
+            printf "\e[90m%-74s\e[0m" "    Checking ${kna[n]} key permissions"; check_cert_perms $1 "$kwd${kke[n]}" "${pke[n]}"
+        fi
+    done
+}
+
+### check cert/key/ca file permissions and ownership
+function check_cert_perms {
+    fileperms=`ssh -i $ssh_key $opts $1 "stat -L -c '%a %G %U' $2" 2>/dev/null`
+    [[ "$fileperms" == "$3" ]] && error_code 0 || error_code 2
+}
+
+### validate cert against ca
+function check_cert_ca {
+    ssh -i $ssh_key $opts $1 "openssl verify -CAfile $2 $3" &>/dev/null
+    [[ $? = 0 ]] && error_code 0 || error_code 2
+}
+
+### validate key against cert
+function check_cert_key {
+    cer_md5=`ssh -i $ssh_key $opts $1 "openssl x509 -noout -modulus -in $2 | openssl md5 2>/dev/null" 2>/dev/null`
+    key_md5=`ssh -i $ssh_key $opts $1 "openssl rsa -noout -modulus -in $3 | openssl md5 2>/dev/null" 2>/dev/null`
+    if [ "$cer_md5" == "$key_md5" ] && [ "$cer_md5" != "(stdin)= d41d8cd98f00b204e9800998ecf8427e" ]; then
+        error_code 0
+    else
+        error_code 2
+    fi
+}
+
+### SOS
+function help {
+    echo "
+    Usage: OlvmKvmCert [OPTION] <HOST|CLUSTER>
+
+    status                    Display the status of all certificates on the Engine host
+    list-hosts                List all Hypervisors
+    renew-host <HOST>         Renew the certificates for a single Hypervisor
+    renew-cluster <CLUSTER>   Renew all certificates of all Hypervisors in a single Cluster
+    renew-all                 Renew all certificates of all Hypervisors
+    check-host <HOST>         Checks all certificates of a single Hypervisor
+    check-cluster <CLUSTER>   Checks all certificates of all Hypervisors in a single Cluster
+    check-all                 Checks all certificates of all Hypervisors"
+}
+
+### MAIN ...
+### get the engine version, check if script is being run on the engine host, check if ssh key exists
+version=`rpm -qa ovirt-engine | sed s'/ovirt-engine-//' | cut -d. -f2`
+[[ "$version" = "" ]] && printf "\n... please run this command on the engine host.\n\n" && exit 1
+[[ ! -f $ssh_key ]] && printf "\n... ssh key file does not exist, can't continue.\n\n" && exit 1
+
+case $1 in     
+    status)
+        get_status
+    ;;
+    list-hosts)
+        echo; $psq -c "select a.vds_name as Name, a.host_name as Host, b.name as Cluster from vds_static a, cluster b where a.cluster_id=b.cluster_id order by cluster ASC, name ASC" | head -n -2
+    ;;
+    renew-host)
+        [[ "$2" = "" ]] && printf "\n... which host ?\n" && help && echo && exit 1 
+        $psq -c "select host_name from vds_static where host_name='$2'" | grep $2 &>/dev/null
+        [[ $? != 0 ]] && printf "%-70s \n""... Host \"$2\" not found." && help && echo && exit 1
+            renew_host $2
+    ;;
+    renew-cluster)
+        [[ "$2" = "" ]] && printf "\n... which cluster ?\n" && help && echo && exit 1
+        $psq -c "select name from cluster where name='$2'" | grep $2 &>/dev/null
+        [[ $? != 0 ]] && printf "%-70s \n""... Cluster \"$2\" not found." && help && echo && exit 1
+        for host in `$psq -t -c "select a.host_name from vds_static a, cluster b where a.cluster_id=b.cluster_id and b.name='$2' order by host_name" | head -n -1`; do
+            renew_host $host
+        done
+    ;;
+    renew-all)
+        for host in `$psq -t -c "select a.host_name from vds_static a, cluster b where a.cluster_id=b.cluster_id order by host_name" | head -n -1`; do
+            renew_host $host
+        done       
+    ;;
+    check-host)
+        [[ "$2" = "" ]] && printf "\n... which host ?\n" && help && echo && exit 1 
+        $psq -c "select host_name from vds_static where host_name='$2'" | grep $2 &>/dev/null
+        [[ $? != 0 ]] && printf "%-70s \n""... Host \"$2\" not found." && help && echo && exit 1
+        check_host $2
+    ;;
+    check-cluster)
+        [[ "$2" = "" ]] && printf "\n... which cluster ?\n" && help && echo && exit 1
+        $psq -c "select name from cluster where name='$2'" | grep $2 &>/dev/null
+        [[ $? != 0 ]] && printf "%-70s \n""... Cluster \"$2\" not found." && help && echo && exit 1
+        for host in `$psq -t -c "select a.host_name from vds_static a, cluster b where a.cluster_id=b.cluster_id and b.name='$2' order by host_name" | head -n -1`; do
+            check_host $host
+        done
+    ;;
+    check-all)
+        for host in `$psq -t -c "select a.host_name from vds_static a, cluster b where a.cluster_id=b.cluster_id order by host_name" | head -n -1`; do
+            check_host $host
+        done
+    ;;
+    *)
+        help
+    ;;
+esac
+
+echo
+exit 0
