@@ -126,4 +126,9 @@ After restarting the services:
 
 
 
+# Checking certificate of olvm using OlvmKvmCert script 
+```
+./Olvmkvmcert --help
+./OlvmKvmCert status
 
+```
