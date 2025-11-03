@@ -51,30 +51,6 @@ here is the output of olvmkvmcer script deamo
 
 
 
-[ ~]$ # Check CA certificate (can also be presented to clients)
-[~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
-notBefore=Sep 17 16:23:25 2024 GMT
-notAfter=Sep 13 16:23:25 2044 GMT
-[~]$ openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
-notBefore=Sep 17 16:23:25 2024 GMT
-notAfter=Oct 21 16:23:25 2025 GMT
-[ ~]$
-```
-Apache/engine server certificate (/etc/pki/ovirt-engine/certs/apache.cer) is expired:
-
-Valid from: Sep 17, 2024
-
-Valid until: Oct 21, 2025
-
-Today's date is October 23, 2025, so the certificate expired 2 days ago.
-This is the direct cause of all the browser and PKIX errors you are seeing!
-
-## Issue Description
-You might encounter login issues or security warnings when accessing the OLVM web interface.  
-The error usually indicates that:
-
-> The Certificate Authority (CA) is still valid, but the **server certificate** has expired.
-
 ---
 
 # step we have followed to Renew the Engine certificates:
