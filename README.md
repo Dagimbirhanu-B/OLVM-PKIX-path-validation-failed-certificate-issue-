@@ -132,3 +132,36 @@ After restarting the services:
 ./OlvmKvmCert status
 
 ```
+# step we have followed to Renew the Engine certificates:
+first copy the pki file for backup to backup place or other env't
+```
+tar cf /var/tmp/pki`date '+%Y%m%d%H%M%S'`.tar /etc/pki/
+```
+take the engine-backup with full scope 
+```
+engine-backup --mode=backup --scope=all --file=/var/lib/ovirt-engine-backup/engine-backup-$(date +%F_%H-%M-%S).backup
+# then once backup completed,   copy the backup from /var/lib/ovirt-engine-backup/ to other env't 
+```
+
+Self-hosted engine only: log in to the host and put it in global maintenance mode.
+```
+hosted-engine --set-maintenance --mode=global
+```
+Self-hosted engine and standalone Engine: log in to the Engine and run engine-setup.
+```
+engine-setup --offline
+```
+The engine-setup script prompts you with configuration questions. Respond to the questions as appropriate or use an answers file.
+
+Enter Yes after the following engine-setup prompt:
+```
+Renew certificates? (Yes, No) [Yes]:
+```
+Self-hosted engine only: log in to the host and disable global maintenance mode:
+```
+hosted-engine --set-maintenance --mode=none
+```
+check the certificate is renewed 
+```
+```
+access the adimin portal and check you are able to login
