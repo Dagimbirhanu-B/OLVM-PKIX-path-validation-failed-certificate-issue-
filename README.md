@@ -11,7 +11,7 @@
 
   ![Screenshot](screenshot2.png)
 
-## how to solve
+
 
 - see list of certificate on the machine 
 ```
@@ -20,29 +20,35 @@ ls -lh /etc/pki/ovirt-engine/certs/
 ```
 list of certificates on olvm 
 ```
-•	CA Certificate (typically used as root of trust) => not expired
-# openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
-Or
-#openssl x509 -in /etc/pki/ovirt-engine/ca.pem -noout -dates
-•	Server (Engine/Apache) Certificate
-#openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
-•	Host Certificate (run on each KVM/compute host)
-#openssl x509 -in /etc/pki/vdsm/certs/vdsmcert.pem -noout -dates
-•	API Certificate (if you have an explicit custom API cert)
-#openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
-
+•	CA Certificate (typically used as root of trust)
 ```
-- to see list of engine certificate details 
-```
-# Check Apache/engine certificate (main cert in most OLVM installs)
-openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
-
-# Check CA certificate (can also be presented to clients)
 openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
 
+#Or
+openssl x509 -in /etc/pki/ovirt-engine/ca.pem -noout -dates
 ```
-here is the output i get from the server showing the error like in the screenshot
+•	Server (Engine/Apache) Certificate
 ```
+openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
+```
+•	Host Certificate (run on each KVM/compute host)
+```
+openssl x509 -in /etc/pki/vdsm/certs/vdsmcert.pem -noout -dates
+```
+•	API Certificate (if you have an explicit custom API cert)
+```
+openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
+
+```
+or check the certificates of olvm, by making ssh to the engine using OlvmKvmCert script 
+```
+./Olvmkvmcert --help
+./OlvmKvmCert status
+```
+here is the output of olvmkvmcer script deamo
+![Screenshot](script-output.png)
+
+
 
 [ ~]$ # Check CA certificate (can also be presented to clients)
 [~]$ openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
@@ -76,35 +82,6 @@ The error usually indicates that:
 
 > The Certificate Authority (CA) is still valid, but the **server certificate** has expired.
 
-This guide provides the steps to resolve this issue quickly.
-
----
-
-## Step 1: Regenerate or Renew the Server Certificate
-
-Run the following command on your OLVM Manager **as root**:
-```
-sudo engine-setup
-```
-During setup, you will be prompted about renewing expired keys and certificates. Choose 'Yes'.
-
-This will reissue a fresh server certificate and update your configuration.
-
-This ensures the new certificate is active and in use.
-## Step 2: Restart OLVM Services After Regeneration
-```
-sudo systemctl restart ovirt-engine httpd
-```
-This ensures the new certificate is active.
----
-
-## Step 3: Verify Access
-
-After restarting the services:
-1. Open your web browser.
-2. Visit your OLVM Manager URL (e.g., `https://your-olvm-manager.example.com`).
-3. Confirm that the previous SSL warnings are **gone** and login works normally.
-
 ---
 
 ## Summary
@@ -117,19 +94,12 @@ After restarting the services:
 
 ---
 
-## Notes
-- This process **does not replace the CA** — it only refreshes the server’s SSL certificate.
-- Always ensure system date and time are accurate before renewing certificates.
-- If the issue persists, review `/var/log/ovirt-engine/setup/` for detailed logs.
 
 ---
 
 
 
-# Checking certificate of olvm using OlvmKvmCert script 
-```
-./Olvmkvmcert --help
-./OlvmKvmCert status
+
 
 ```
 # step we have followed to Renew the Engine certificates:
@@ -211,4 +181,14 @@ check the certificate is renewed
 ```
 ./OlvmKvmCert status
 ```
-access the adimin portal and check you are able to login
+##  Verify Access
+
+After restarting the services:
+1. Open your web browser.
+2. Visit your OLVM Manager URL (e.g., `https://your-olvm-manager.example.com`).
+3. Confirm that the previous SSL warnings are **gone** and login works normally.
+## Notes
+- This process **does not replace the CA** — it only refreshes the server’s SSL certificate.
+- Always ensure system date and time are accurate before renewing certificates.
+- If the issue persists, review `/var/log/ovirt-engine/setup/` for detailed logs.
+
