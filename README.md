@@ -16,10 +16,9 @@
 - see list of certificate on the machine 
 ```
 ls -lh /etc/pki/ovirt-engine/certs/
-
 ```
 list of certificates on olvm 
-```
+
 •	CA Certificate (typically used as root of trust)
 ```
 openssl x509 -in /etc/pki/ovirt-engine/apache-ca.pem -noout -dates
@@ -40,16 +39,13 @@ openssl x509 -in /etc/pki/vdsm/certs/vdsmcert.pem -noout -dates
 openssl x509 -in /etc/pki/ovirt-engine/certs/apache.cer -noout -dates
 
 ```
-or check the certificates of olvm, by making ssh to the engine using OlvmKvmCert script 
+or check the certificates of olvm, by making ssh to the engine using OlvmKvmCert script, frist cd to directory where OlvmKvmCert script found
 ```
 ./Olvmkvmcert --help
 ./OlvmKvmCert status
 ```
 here is the output of olvmkvmcer script deamo
 ![olvmkvmcer scirpt] (script-output.png)
-
-
-
 
 ---
 
@@ -133,8 +129,7 @@ check the certificate is renewed
 ./OlvmKvmCert status
 ```
 ##  Verify Access
-
-After restarting the services:
+After restarting the services(ovirt-engine and httpd):
 1. Open your web browser.
 2. Visit your OLVM Manager URL (e.g., `https://your-olvm-manager.example.com`).
 3. Confirm that the previous SSL warnings are **gone** and login works normally.
