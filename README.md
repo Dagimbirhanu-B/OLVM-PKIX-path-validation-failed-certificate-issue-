@@ -149,12 +149,58 @@ hosted-engine --set-maintenance --mode=global
 ```
 Self-hosted engine and standalone Engine: log in to the Engine and run engine-setup.
 ```
-engine-setup --offline
-```
-The engine-setup script prompts you with configuration questions. Respond to the questions as appropriate or use an answers file.
+[root@hostname~]# engine-setup --offline
+[ INFO  ] Stage: Initializing
+[ INFO  ] Stage: Environment setup
+Configuration files: /etc/ovirt-engine-setup.conf.d/10-packaging-jboss.conf, /etc/ovirt-engine-setup.conf.d/10-packaging.conf,
+/etc/ovirt-engine-setup.conf.d/20-setup-ovirt-post.conf
+Log file: /var/log/ovirt-engine/setup/ovirt-engine-setup-20251102003945-71lrsw.log
+Version: otopi-1.10.4 (otopi-1.10.4-1.el8)
+[ INFO  ] Stage: Environment packages setup
+[ INFO  ] Stage: Programs detection
+[ INFO  ] Stage: Environment setup (late)
+[ INFO  ] Stage: Environment customization
 
-Enter Yes after the following engine-setup prompt:
-```
+--== PRODUCT OPTIONS ==--
+
+[ INFO  ] ovirt-provider-ovn already installed, skipping.
+
+--== PACKAGES ==--
+
+--== NETWORK CONFIGURATION ==--
+
+[WARNING] Host name x9-hosted-engine has no domain suffix
+[WARNING] Failed to resolve x9-hosted-engine using DNS, it can be resolved only locally
+
+Setup can automatically configure the firewall on this system.
+Note: automatic configuration of the firewall may overwrite current settings.
+Do you want Setup to configure the firewall? (Yes, No) [Yes]:  NO
+--== PRODUCT OPTIONS ==--
+
+[ INFO  ] ovirt-provider-ovn already installed, skipping.
+
+--== PACKAGES ==--
+
+--== NETWORK CONFIGURATION ==--
+
+[WARNING] Host name x9-hosted-engine has no domain suffix
+[WARNING] Failed to resolve x9-hosted-engine using DNS, it can be resolved only locally
+
+Setup can automatically configure the firewall on this system.
+Note: automatic configuration of the firewall may overwrite current settings.
+Do you want Setup to configure the firewall? (Yes, No) [Yes]: No
+[WARNING] Host name x9-hosted-engine has no domain suffix
+[WARNING] Host name x9-hosted-engine has no domain suffix
+
+--== DATABASE CONFIGURATION ==--
+
+The detected DWH database size is 339.32475185394287 MB.
+Setup can backup the existing database. The time and space required for the database backup depend on its size. This process takes time, and in some cases (for instance, when the size is few GBs) may take several hours to complete.
+If you choose to not back up the database, and Setup later fails for some reason, it will not be able to restore the database and all DWH data will be lost.
+Would you like to backup the existing database before upgrading it? (Yes, No) [Yes]: No
+......
+......
+......
 Renew certificates? (Yes, No) [Yes]:
 ```
 Self-hosted engine only: log in to the host and disable global maintenance mode:
