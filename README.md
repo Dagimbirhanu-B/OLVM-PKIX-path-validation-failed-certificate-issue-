@@ -163,5 +163,6 @@ hosted-engine --set-maintenance --mode=none
 ```
 check the certificate is renewed 
 ```
+./OlvmKvmCert status
 ```
 access the adimin portal and check you are able to login
