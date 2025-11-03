@@ -46,7 +46,8 @@ or check the certificates of olvm, by making ssh to the engine using OlvmKvmCert
 ./OlvmKvmCert status
 ```
 here is the output of olvmkvmcer script deamo
-![Screenshot](script-output.png)
+![olvmkvmcer scirpt (script-output.png)
+
 
 
 
@@ -67,14 +68,6 @@ Valid until: Oct 21, 2025
 
 Today's date is October 23, 2025, so the certificate expired 2 days ago.
 This is the direct cause of all the browser and PKIX errors you are seeing!
-## hot to fix
-# OLVM Certificate Renewal Guide
-
-## Overview
-This guide explains how to fix issues related to an **expired server certificate** in your **Oracle Linux Virtualization Manager (OLVM)**.  
-The process involves **regenerating the server certificate** and **restarting services** to apply the changes.
-
----
 
 ## Issue Description
 You might encounter login issues or security warnings when accessing the OLVM web interface.  
@@ -84,24 +77,6 @@ The error usually indicates that:
 
 ---
 
-## Summary
-| Status | Description |
-|--------|--------------|
-| Issue | Expired server certificate while CA remains valid |
-| Root Cause | Server certificate no longer trusted by browser |
-| Fix | Regenerate certificate using `engine-setup` |
-| Validation | Successful login without certificate warning |
-
----
-
-
----
-
-
-
-
-
-```
 # step we have followed to Renew the Engine certificates:
 first copy the pki file for backup to backup place or other env't
 ```
