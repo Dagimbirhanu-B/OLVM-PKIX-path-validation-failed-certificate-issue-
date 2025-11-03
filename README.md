@@ -45,7 +45,7 @@ or check the certificates of olvm, by making ssh to the engine using OlvmKvmCert
 ./OlvmKvmCert status
 ```
 here is the output of olvmkvmcer script deamo
-![olvmkvmcer scirpt] (script-output.png)
+![Screenshot](script-output.png)
 
 ---
 
